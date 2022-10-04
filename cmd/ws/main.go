@@ -19,8 +19,7 @@ func main() {
 	httpRoutes.Websocket("/ws", func(response http.ResponseWriter, request *http.Request, params httprouter.Params) {
 		ws, _ := websocket.NewWebsocket(response, request)
 
-		ws.Connection().WriteJSON("Hello from websocket")
-
+		go ws.ListenForWs()
 	})
 
 	httpRoutes.Serve(":4000")

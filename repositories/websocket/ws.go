@@ -7,9 +7,16 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type wsPayload struct {
+}
+
 type Socket struct {
 	ws *websocket.Conn
 }
+
+var wsChan = make(chan wsPayload)
+
+var clients = make(map[*Socket]string)
 
 func NewWebsocket(response http.ResponseWriter, request *http.Request) (*Socket, error) {
 	var upGrader = websocket.Upgrader{
@@ -31,5 +38,11 @@ func NewWebsocket(response http.ResponseWriter, request *http.Request) (*Socket,
 }
 
 func (socket *Socket) Connection() *websocket.Conn {
- return socket.ws
+	return socket.ws
+}
+
+func (socket *Socket) ListenForWs() {
+	ws := socket.Connection()
+
+	clients[&Socket{ws}] = ""
 }
