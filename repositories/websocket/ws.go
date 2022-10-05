@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -8,6 +9,17 @@ import (
 )
 
 type wsPayload struct {
+	Action string `json:"action"`
+	Message string `json:"message"`
+}
+
+type wsResponse struct {
+	Action string `json:"action"`
+	Message string `json:"message"`
+}
+
+type webConnection struct {
+  conn *websocket.Conn
 }
 
 type Socket struct {
@@ -16,7 +28,7 @@ type Socket struct {
 
 var wsChan = make(chan wsPayload)
 
-var clients = make(map[*Socket]string)
+var clients = make(map[webConnection]string)
 
 func NewWebsocket(response http.ResponseWriter, request *http.Request) (*Socket, error) {
 	var upGrader = websocket.Upgrader{
@@ -42,7 +54,53 @@ func (socket *Socket) Connection() *websocket.Conn {
 }
 
 func (socket *Socket) ListenForWs() {
-	ws := socket.Connection()
+	
 
-	clients[&Socket{ws}] = ""
+	clients[webConnection{socket.ws}] = ""
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Println(err)
+		}
+	}()
+
+	for {
+		var payload wsPayload
+
+		
+		err := socket.ws.ReadJSON(&payload)
+
+		if err != nil {
+			
+			return
+		}
+
+		wsChan <- payload
+	}
+}
+
+
+func  ListenForWsChan() {
+
+	response := wsResponse{}
+	
+
+	for{
+		 e := <- wsChan
+        response.Action = fmt.Sprintf(`hello from server %v`,e)
+		response.Message = "hello from server"
+		log.Println(e)
+        broadcast(&response)
+	}
+}
+
+func broadcast(response *wsResponse) {
+	for client := range clients {
+		err := client.conn.WriteJSON(response)
+
+		if err != nil {
+			delete(clients, client)
+			return
+		}
+	}
 }

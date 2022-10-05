@@ -12,7 +12,13 @@
 
         socket = new WebSocket("ws://localhost:4000/ws")
 
-        console.log(socket)
+        socket.onmessage = function (event) {
+            console.log("data",JSON.parse(event.data))
+        }
+
+        socket.onopen = function (event) {
+            socket.send(JSON.stringify({action:"message", message:"connected"}))
+        }
     </script>
 </body>
 </html>
