@@ -12,6 +12,8 @@ import (
 func main() {
 	httpRoutes := router.NewHttpRouter()
 
+	go  websocket.ListenForWsChan()
+
 	httpRoutes.Get("/", func(response http.ResponseWriter, request *http.Request, params httprouter.Params) {
 		response.Write([]byte("Hello"))
 	})
