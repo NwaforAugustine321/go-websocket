@@ -11,16 +11,17 @@ import (
 
 func main() {
 	httpRoutes := router.NewHttpRouter()
+	ws := websocket.NewWebsocket()
 
-	go  websocket.ListenForWsChan()
+	go ws.ListenForWsChan()
 
 	httpRoutes.Get("/", func(response http.ResponseWriter, request *http.Request, params httprouter.Params) {
 		response.Write([]byte("Hello"))
 	})
 
 	httpRoutes.Websocket("/ws", func(response http.ResponseWriter, request *http.Request, params httprouter.Params) {
-		ws, _ := websocket.NewWebsocket(response, request)
 
+		ws.Connection(response, request)
 		go ws.ListenForWs()
 	})
 
