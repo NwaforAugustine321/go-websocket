@@ -1,8 +1,11 @@
 package ws
 
-import "net/http"
+import (
+	"net/http"
+)
 
 type ISocket interface {
-	 Connection(path string, h http.HandlerFunc)
+	 Connection(response http.ResponseWriter, request *http.Request) error
 	 ListenForWs()
+	 ListenForWsChan()
 }

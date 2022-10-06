@@ -5,21 +5,30 @@ import (
 	"log"
 	"net/http"
 
+	"Go-websocket-project/v2/interfaces/ws"
+
 	"github.com/gorilla/websocket"
 )
 
 type wsPayload struct {
-	Action string `json:"action"`
-	Message string `json:"message"`
+	Action   string `json:"action"`
+	Message  string `json:"message"`
+	Username string `json:"username"`
 }
 
 type wsResponse struct {
-	Action string `json:"action"`
-	Message string `json:"message"`
+	Action   string `json:"action"`
+	Message  string `json:"message"`
+	Username string `json:"username"`
+	UserList
+}
+
+type UserList struct {
+	Users []string `json:"users"`
 }
 
 type webConnection struct {
-  conn *websocket.Conn
+	conn *websocket.Conn
 }
 
 type Socket struct {
@@ -30,7 +39,11 @@ var wsChan = make(chan wsPayload)
 
 var clients = make(map[webConnection]string)
 
-func NewWebsocket(response http.ResponseWriter, request *http.Request) (*Socket, error) {
+func NewWebsocket() ws.ISocket {
+	return &Socket{}
+}
+
+func (socket *Socket) Connection(response http.ResponseWriter, request *http.Request) error {
 	var upGrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -39,39 +52,32 @@ func NewWebsocket(response http.ResponseWriter, request *http.Request) (*Socket,
 		},
 	}
 
-	ws, err := upGrader.Upgrade(response, request, nil)
+	conn, err := upGrader.Upgrade(response, request, nil)
 
 	if err != nil {
 		log.Println(err)
-		return &Socket{ws}, err
+		return err
 	}
 
-	return &Socket{ws}, nil
-}
-
-func (socket *Socket) Connection() *websocket.Conn {
-	return socket.ws
+	socket.ws = conn
+	return nil
 }
 
 func (socket *Socket) ListenForWs() {
-	
-
-	clients[webConnection{socket.ws}] = ""
 
 	defer func() {
 		if err := recover(); err != nil {
-			log.Println(err)
+			log.Println("Recovering from error", err)
 		}
 	}()
 
 	for {
-		var payload wsPayload
+		var payload = wsPayload{Action: "", Message: ""}
 
-		
 		err := socket.ws.ReadJSON(&payload)
 
 		if err != nil {
-			
+			log.Println("here", err)
 			return
 		}
 
@@ -79,19 +85,38 @@ func (socket *Socket) ListenForWs() {
 	}
 }
 
-
-func  ListenForWsChan() {
+func (socket *Socket) ListenForWsChan() {
 
 	response := wsResponse{}
-	
+	users := make([]string, 0)
 
-	for{
-		 e := <- wsChan
-        response.Action = fmt.Sprintf(`hello from server %v`,e)
-		response.Message = "hello from server"
-		log.Println(e)
-        broadcast(&response)
+	for {
+
+		e := <-wsChan
+
+		switch e.Action {
+		case "connect":
+			response.Action = e.Action
+			response.Message = "Connected Successfully"
+			broadcast(&response)
+		case "message":
+			response.Action = e.Action
+			response.Message = e.Message
+			response.Username = e.Username
+			broadcast(&response)
+		case "login":
+			if e.Message != clients[webConnection{socket.ws}] {
+				clients[webConnection{socket.ws}] = e.Message
+				users = append(users, e.Message)
+
+				response.UserList = UserList{Users: users}
+				response.Action = e.Action
+				response.Message = fmt.Sprintf("%s has joined the chat", e.Message)
+				broadcast(&response)
+			}
+		}
 	}
+
 }
 
 func broadcast(response *wsResponse) {
@@ -99,6 +124,7 @@ func broadcast(response *wsResponse) {
 		err := client.conn.WriteJSON(response)
 
 		if err != nil {
+
 			delete(clients, client)
 			return
 		}
